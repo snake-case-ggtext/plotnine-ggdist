@@ -302,7 +302,7 @@ def bounder_cdf(x: Any, p: float = 0.01) -> tuple[float, float]:
     """
     x, _ = _prep(x, None)
     n = len(x)
-    lo_hat, hi_hat = np.quantile(x, [1 - (1 - p) ** (1 / n), p ** (1 / n)])
+    lo_hat, hi_hat = np.quantile(x, [1 - p ** (1 / n), p ** (1 / n)])
     return float(2 * x.min() - lo_hat), float(2 * x.max() - hi_hat)
 
 
@@ -553,8 +553,8 @@ def density_histogram(
 
     Notes
     -----
-    The returned `x`/`pdf` trace the outline of the bars (each bin edge
-    appears twice), so it can be drawn directly as a slab.
+    The returned `x`/`pdf` trace the outline of the bars (including each bin's
+    midpoint), so it can be drawn directly as a slab.
     """
     x, w = _prep(x, weights)
     if len(x) == 0:
@@ -572,13 +572,15 @@ def density_histogram(
     xs, ps, cs = [], [], []
     for i, d in enumerate(dens):
         left, right = edges[i], edges[i + 1]
+        mid = 0.5 * (left + right)
+        cmid = 0.5 * (cum[i] + cum[i + 1])
         if outline_bars or i == 0:
             xs.append(left)
             ps.append(0.0)
             cs.append(cum[i])
-        xs += [left, right]
-        ps += [d, d]
-        cs += [cum[i], cum[i + 1]]
+        xs += [left, mid, right]
+        ps += [d, d, d]
+        cs += [cum[i], cmid, cum[i + 1]]
         if outline_bars or i == len(dens) - 1:
             xs.append(right)
             ps.append(0.0)

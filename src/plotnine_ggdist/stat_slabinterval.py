@@ -23,7 +23,7 @@ from plotnine.exceptions import PlotnineError
 from plotnine.mapping.evaluation import after_stat
 from plotnine.stats.stat import stat
 
-from ._core.density import Density, get_density
+from ._core.density import Density, get_density, weighted_ecdf
 from ._core.dist import dist_cdf, dist_limits, dist_pdf, is_discrete, is_dist
 from ._core.intervals import parse_point_interval, summarise
 from ._orientation import HORIZONTAL, VERTICAL, flip, normalize_orientation
@@ -315,7 +315,12 @@ class stat_slabinterval(stat):
 
         if is_dist(x):
             lo, hi = dist_limits(x, params["p_limits"])
-            lo, hi = _expand_limits(lo, hi, params["expand"], scales, trans, getattr(self, "_dist_range", None))
+            dist_range = getattr(self, "_dist_range", None)
+            if dist_range is not None and not is_discrete(x):
+                sup_lo, sup_hi = x.support()
+                lo = max(min(lo, dist_range[0]), float(sup_lo))
+                hi = min(max(hi, dist_range[1]), float(sup_hi))
+            lo, hi = _expand_limits(lo, hi, params["expand"], scales, trans, dist_range)
             lo, hi = _apply_limits(lo, hi, params["limits"])
             if trans is not None and not is_discrete(x):
                 # keep both ends finite on the transformed scale (e.g. 0 on log)
@@ -365,7 +370,8 @@ class stat_slabinterval(stat):
             if len(values) == 0:
                 return pd.DataFrame(columns=["datatype", *SLAB_COLUMNS])
             dens = self._density(values, w, n_grid)
-            xs, pdf, cdfs = dens.x, dens.pdf, dens.cdf
+            xs, pdf = dens.x, dens.pdf
+            cdfs = dens.cdf if dens.kind == "histogram" else weighted_ecdf(values, w)(xs)
             n = float(len(values)) if w is None else float(np.sum(w))
             xs, pdf, cdfs = _expand(xs, pdf, cdfs, params["expand"], scales)
             lims = params["limits"]
@@ -453,11 +459,13 @@ def _expand_limits(
         return lo, hi
     s_lo, s_hi = np.inf, -np.inf
     try:
-        d_lo, d_hi = (float(v) for v in scales.x.dimension())
-        if np.isfinite(d_lo) and np.isfinite(d_hi) and d_hi > d_lo:
-            if trans is not None:
-                d_lo, d_hi = (float(v) for v in trans.inverse(np.array([d_lo, d_hi], dtype=float)))
-            s_lo, s_hi = d_lo, d_hi
+        is_empty = getattr(scales.x, "is_empty", None)
+        if is_empty is None or not is_empty():
+            d_lo, d_hi = (float(v) for v in scales.x.dimension())
+            if np.isfinite(d_lo) and np.isfinite(d_hi) and d_hi > d_lo:
+                if trans is not None:
+                    d_lo, d_hi = (float(v) for v in trans.inverse(np.array([d_lo, d_hi], dtype=float)))
+                s_lo, s_hi = d_lo, d_hi
     except Exception:
         pass
     if dist_range is not None:

@@ -168,8 +168,9 @@ def test_ccdf_thickness_and_expansion(layer_data):
     p = ggplot(SAMPLES, aes("x", "g")) + stat_ccdfinterval()
     s = slab(layer_data(p))
     np.testing.assert_allclose(s["thickness"], 1 - s["cdf"])  # normalize="none"
-    # expanded to the scale limits: full thickness on the left
-    assert s.groupby("group")["thickness"].max().tolist() == pytest.approx([1, 1, 1], abs=1e-3)
+    # expanded to the scale limits: full thickness on the left (1 - 1/n at the
+    # leftmost group's minimum value under the empirical CDF)
+    assert s.groupby("group")["thickness"].max().tolist() == pytest.approx([1, 1, 1], abs=5e-3)
 
 
 def test_needs_values(layer_data):

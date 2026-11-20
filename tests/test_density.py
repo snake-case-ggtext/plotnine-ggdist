@@ -74,6 +74,11 @@ def test_estimated_bounds_contain_the_data():
         lo, hi = bounder(BETA)
         assert lo <= BETA.min() and hi >= BETA.max()
     assert bounder_range(BETA) == (BETA.min(), BETA.max())
+    # symmetric data should yield symmetric bounds under bounder_cdf
+    sym = np.linspace(-3, 3, 101)
+    lo, hi = bounder_cdf(sym)
+    assert lo == pytest.approx(-hi)
+    assert lo < sym.min() - 0.1
 
 
 def test_weights():
