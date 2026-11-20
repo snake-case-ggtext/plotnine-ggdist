@@ -295,10 +295,11 @@ def bounder_cdf(x: Any, p: float = 0.01) -> tuple[float, float]:
     """
     Bounds estimated from the distribution of the sample's order statistics
 
-    Treating the sample as the distribution, estimates where its minimum
-    and maximum order statistics would fall (at percentile `p` of their
-    distributions) and moves each bound outwards from the sample min / max
-    by that distance. ``p=1`` gives the range of `x`.
+    Treating the sample as the distribution, estimates how far inside the
+    true bounds its minimum and maximum would fall: the maximum's `p`
+    quantile and, mirroring it, the minimum's ``1 - p`` quantile. Each bound
+    is moved outwards from the sample min / max by that distance, so
+    symmetric data give symmetric bounds. ``p=1`` gives the range of `x`.
     """
     x, _ = _prep(x, None)
     n = len(x)

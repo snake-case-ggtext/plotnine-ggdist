@@ -168,9 +168,67 @@ def test_ccdf_thickness_and_expansion(layer_data):
     p = ggplot(SAMPLES, aes("x", "g")) + stat_ccdfinterval()
     s = slab(layer_data(p))
     np.testing.assert_allclose(s["thickness"], 1 - s["cdf"])  # normalize="none"
-    # expanded to the scale limits: full thickness on the left (1 - 1/n at the
-    # leftmost group's minimum value under the empirical CDF)
-    assert s.groupby("group")["thickness"].max().tolist() == pytest.approx([1, 1, 1], abs=5e-3)
+    # expanded to the scale limits: groups whose minimum is above the scale's
+    # lower limit get a full-thickness (cdf 0) point there; the group holding
+    # the overall minimum starts at it, where the empirical CDF is 1/n
+    widest = s.groupby("group")["thickness"].max()
+    has_min = SAMPLES.groupby("g")["x"].min().pipe(lambda m: m == m.min()).to_numpy()
+    n = SAMPLES.groupby("g").size().to_numpy()
+    np.testing.assert_allclose(widest.to_numpy(), np.where(has_min, 1 - 1 / n, 1.0))
+
+
+def test_sample_slab_cdf_is_the_empirical_cdf(layer_data):
+    from plotnine_ggdist import weighted_ecdf
+
+    df = SAMPLES[SAMPLES["g"] == "a"]
+    s = slab(layer_data(ggplot(df, aes("x", "g")) + stat_slab()))
+    np.testing.assert_allclose(s["cdf"], weighted_ecdf(df["x"])(s["x"]))
+
+    w = np.where(df["x"] > 0, 3.0, 1.0)
+    sw = slab(layer_data(ggplot(df.assign(w=w), aes("x", "g", weight="w")) + stat_slab()))
+    np.testing.assert_allclose(sw["cdf"], weighted_ecdf(df["x"], w)(sw["x"]))
+
+
+def test_histogram_slab_cdf_is_the_histograms(layer_data):
+    from plotnine_ggdist import density_histogram
+
+    df = SAMPLES[SAMPLES["g"] == "a"]
+    s = slab(layer_data(ggplot(df, aes("x", "g")) + stat_slab(density="histogram")))
+    h = density_histogram(df["x"])
+    np.testing.assert_allclose(s["x"], h.x)
+    np.testing.assert_allclose(s["cdf"], h.cdf)
+
+
+def test_analytical_slabs_share_the_layers_range_within_their_support(layer_data):
+    df = pd.DataFrame({"g": ["normal", "gamma", "beta"], "d": [stats.norm(0, 1), stats.gamma(3), stats.beta(2, 2)]})
+    s = slab(layer_data(ggplot(df, aes(y="g", xdist="d")) + stat_slab()))
+    rng_by = s.groupby("y")["x"].agg(["min", "max"])  # y: beta 1, gamma 2, normal 3
+    lo, hi = stats.norm.ppf(0.001), stats.gamma(3).ppf(0.999)
+    # the normal reaches the gamma's upper end
+    assert rng_by.loc[3].tolist() == pytest.approx([lo, hi])
+    # the gamma and beta stop at the edges of their support
+    assert rng_by.loc[2].tolist() == pytest.approx([0, hi])
+    assert rng_by.loc[1].tolist() == pytest.approx([0, 1])
+
+
+def test_discrete_distributions_keep_their_own_range(layer_data):
+    df = pd.DataFrame({"g": ["poisson", "normal"], "d": [stats.poisson(2), stats.norm(20, 1)]})
+    s = slab(layer_data(ggplot(df, aes(y="g", xdist="d")) + stat_slab()))
+    pois = s[s["y"] == 2]["x"]
+    assert pois.min() == pytest.approx(-0.5) and pois.max() < 12
+
+
+def test_expand_with_only_distributions(layer_data):
+    # no sample data, so the x scale is empty when the stat runs: the slabs
+    # expand to the range of all the distributions instead, past the edge of
+    # a distribution's support if need be (there the CCDF bar is full)
+    s = slab(layer_data(ggplot(DISTS, aes(y="g", xdist="d")) + stat_ccdfinterval()))
+    rng_by = s.groupby("y")["x"].agg(["min", "max"])  # y: a (normal) 1, b (gamma) 2
+    span = [stats.norm.ppf(0.001), stats.gamma(3).ppf(0.999)]
+    assert rng_by.loc[1].tolist() == pytest.approx(span)
+    assert rng_by.loc[2].tolist() == pytest.approx(span)
+    gamma = s[s["y"] == 2]
+    assert (gamma.loc[gamma["x"] < 0, "thickness"] == 1).all()
 
 
 def test_needs_values(layer_data):

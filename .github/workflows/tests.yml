@@ -17,9 +17,17 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           python-version: ${{ matrix.python-version }}
-      - run: uv run --python ${{ matrix.python-version }} pytest -q
+      # --locked: fail if uv.lock is out of date with pyproject.toml
+      - run: uv run --locked --python ${{ matrix.python-version }} pytest -q
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: result-images-${{ matrix.python-version }}
           path: tests/result_images
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uvx ruff check .

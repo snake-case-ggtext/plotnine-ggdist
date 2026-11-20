@@ -79,6 +79,8 @@ def test_estimated_bounds_contain_the_data():
     lo, hi = bounder_cdf(sym)
     assert lo == pytest.approx(-hi)
     assert lo < sym.min() - 0.1
+    # p = 1 gives the range of the data
+    assert bounder_cdf(sym, p=1) == pytest.approx((sym.min(), sym.max()))
 
 
 def test_weights():
@@ -98,6 +100,19 @@ def test_histogram_outline():
     bars = density_histogram(X, breaks=10, outline_bars=True)
     # each bar starts and ends at zero
     assert np.sum(bars.pdf == 0) == 2 * 10
+
+
+def test_histogram_outline_includes_bar_midpoints():
+    edges = np.linspace(-4, 4, 9)
+    d = density_histogram(X, breaks=edges)
+    mids = (edges[:-1] + edges[1:]) / 2
+    for i, m in enumerate(mids):
+        j = np.flatnonzero(np.isclose(d.x, m))
+        assert len(j) == 1
+        # the cdf at a bar's midpoint is halfway between its ends
+        lo, hi = np.interp([edges[i], edges[i + 1]], d.x[d.pdf > 0], d.cdf[d.pdf > 0])
+        assert d.cdf[j[0]] == pytest.approx((lo + hi) / 2)
+    assert np.all(np.diff(d.cdf) >= -1e-12)
 
 
 def test_weighted_quantile_and_ecdf():

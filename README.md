@@ -178,6 +178,7 @@ ramp scales, `subguide_*()`, `parse_dist()`, `curve_interval()`,
 
 ```bash
 uv run pytest
+uvx ruff check .   # lint, as CI does
 ```
 
 - `tests/test_intervals.py`, `tests/test_density.py`: the computational core
@@ -207,6 +208,18 @@ To update baselines after an intended visual change:
 ```bash
 uv run pytest --update-baselines
 ```
+
+Baselines must be generated on Linux (CI runs on Ubuntu): font rendering
+differs on macOS and Windows, so images made there fail in CI. On a Mac,
+regenerate them in Docker, e.g.
+
+```bash
+docker run --rm -v "$PWD":/repo -w /repo ghcr.io/astral-sh/uv:python3.14-trixie \
+  uv run pytest --update-baselines
+```
+
+or let CI do it: when image tests fail, the workflow uploads the images it
+made as an artifact.
 
 ## License
 

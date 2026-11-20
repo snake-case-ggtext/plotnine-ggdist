@@ -34,3 +34,8 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff.lint]
+# pyflakes, syntax errors and bugbear; style is left to the author
+select = ["F", "E9", "B"]
+ignore = ["B008", "B905"]

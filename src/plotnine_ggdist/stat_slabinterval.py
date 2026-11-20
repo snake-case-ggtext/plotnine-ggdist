@@ -110,15 +110,19 @@ class stat_slabinterval(stat):
     p_limits :
         ``(lower, upper)`` probabilities limiting the slab of an analytical
         distribution. ``None`` uses the end of the support if finite,
-        otherwise the 0.001 / 0.999 quantile.
+        otherwise the 0.001 / 0.999 quantile. The slabs of continuous
+        distributions then span the range of all the layer's distributions,
+        within each one's support, as in ggdist.
     limits :
         ``(lower, upper)`` values the slab never extends past; ``None``
         leaves a side alone.
     n :
         Number of points the slab function is evaluated at. Default 501.
     expand :
-        For samples, extend the slab to the limits of the scale (useful for
-        CDF/CCDF slabs). A bool, or a pair for (lower, upper).
+        Extend the slab to the limits of the scale (and, for analytical
+        distributions, to the range of all the layer's distributions), even
+        past the edge of a distribution's support; useful for CDF/CCDF
+        slabs. A bool, or a pair for (lower, upper).
 
     Computed variables
     ------------------
@@ -129,7 +133,9 @@ class stat_slabinterval(stat):
     xmin, xmax or ymin, ymax :
         Interval ends.
     pdf, cdf :
-        Slab: density and cumulative distribution.
+        Slab: density and cumulative distribution. For samples, ``cdf`` is
+        the (weighted) empirical CDF, or the histogram's CDF with
+        ``density="histogram"``.
     n :
         Slab: number of draws (``inf`` for analytical distributions).
     .width :
